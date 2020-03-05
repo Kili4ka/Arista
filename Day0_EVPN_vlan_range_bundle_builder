@@ -1,0 +1,63 @@
+from cvplibrary import Form
+from jsonrpclib import Server
+from cvplibrary import CVPGlobalVariables, GlobalVariableNames
+import ssl
+ssl._create_default_https_context = ssl._create_unverified_context
+
+#fetching the management ip of the current device
+device_ip = CVPGlobalVariables.getValue(GlobalVariableNames.CVP_IP)
+#fetching the username for the current device
+username = CVPGlobalVariables.getValue(GlobalVariableNames.CVP_USERNAME)
+#fetching the password for the current device
+password = CVPGlobalVariables.getValue(GlobalVariableNames.CVP_PASSWORD)
+#fetching the variables from the form
+vlan_range = Form.getFieldById("field_0").getValue();
+tenant_name = Form.getFieldById("field_3").getValue();
+vlan_vni_offset = Form.getFieldById("field_4").getValue();
+route_target = Form.getFieldById("field_5").getValue();
+
+if not tenant_name: tenant_name = "TENANT"
+if not vlan_vni_offset: vlan_vni_offset = 0
+if not route_target: route_target = "1:1"
+
+
+def connect_to_switch(protocol):
+  #connecting to the switch
+  switch = Server('%s://%s:%s@%s/command-api' % (protocol, username, password, device_ip))
+  response = switch.runCmds( 1, ["show ip bgp"] , "json")
+  create_config(response)
+
+def create_config(response):
+  if response[0]["vrfs"]:
+    #fetching the bgp local as number
+    bgpasn = response[0]["vrfs"]["default"]["asn"]
+    #fetching the bgp router_id 
+    router_id = response[0]["vrfs"]["default"]["routerId"]
+    
+    #adding offset to vni range
+    vxlan_range = vlan_range.split("-")
+    vxlan_range = [str(int(x)+int(vlan_vni_offset)) for x in vxlan_range]
+    vxlan_range = "-".join(vxlan_range)
+  
+    print "vlan " + vlan_range
+    
+    print "interface Vxlan1"
+    print "vxlan vlan " + vlan_range + " vni " +  vxlan_range
+    
+    print "router bgp " + bgpasn
+    print  "vlan-aware-bundle " + tenant_name
+    print "rd " + router_id + ":1"
+    print "route-target both "+ route_target
+    print "redistribute learned"
+    print  "vlan " + vlan_range
+  else:
+    print "BGP is not configured, Please configure BGP EVPN underlay and overlay before running the Builder"
+
+try:
+  connect_to_switch("http")
+except:
+  try:
+    connect_to_switch("https")
+  except:
+    print "Please select a switch to run the Builder and verify 'managemnt api http-commands' is enabled on the switch"
+  
