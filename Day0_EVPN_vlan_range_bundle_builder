@@ -36,7 +36,7 @@ def create_config(response):
     print "vlan " + vlan_range
     
     print "interface Vxlan1"
-    print "vxlan vlan " + vlan_range + " vni " +  vxlan_range
+    print "vxlan vlan add " + vlan_range + " vni " +  vxlan_range
     
     print "router bgp " + bgpasn
     print  "vlan-aware-bundle " + tenant_name
