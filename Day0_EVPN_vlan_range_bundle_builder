@@ -1,6 +1,9 @@
 from cvplibrary import Form
 from cvplibrary import Device
 from cvplibrary import CVPGlobalVariables, GlobalVariableNames
+import random
+
+randnum = str(int(random.random()*1000))
 
 #fetching the management ip of the current device
 device_ip = CVPGlobalVariables.getValue(GlobalVariableNames.CVP_IP)
@@ -11,36 +14,43 @@ tenant_name = Form.getFieldById("field_3").getValue();
 vlan_vni_offset = Form.getFieldById("field_4").getValue();
 route_target = Form.getFieldById("field_5").getValue();
 
-if not tenant_name: tenant_name = "TENANT"
+if tenant_name == "TENANT": 
+  tenant_name = "TENANT_" + randnum
+else: 
+  pass
 if not vlan_vni_offset: vlan_vni_offset = 0
 if not route_target: route_target = "1:1"
 
 def connect_to_switch(device_ip):
   #connecting to the switch
   switch = Device(device_ip) 
-  response = switch.runCmds(["show ip bgp"])
-  create_config(response)
+  showipbgp = switch.runCmds(["show ip bgp"])
+  create_config(showipbgp)
 
-def create_config(response):
-  if response[0]["response"]["vrfs"]:
+def create_config(showipbgp):
+  
+  if showipbgp[0]["response"]["vrfs"]:
     #fetching the bgp local as number
-    bgpasn = response[0]["response"]["vrfs"]["default"]["asn"]
+    bgpasn = showipbgp[0]["response"]["vrfs"]["default"]["asn"]
     #fetching the bgp router_id 
-    router_id = response[0]["response"]["vrfs"]["default"]["routerId"]
+    router_id = showipbgp[0]["response"]["vrfs"]["default"]["routerId"]
     
     #adding offset to vni range
     vxlan_range = vlan_range.split("-")
     vxlan_range = [str(int(x)+int(vlan_vni_offset)) for x in vxlan_range]
     vxlan_range = "-".join(vxlan_range)
-  
+    
+      
+    #printing configuration
     print "vlan " + vlan_range
     
     print "interface Vxlan1"
     print "vxlan vlan add " + vlan_range + " vni " +  vxlan_range
-    
+
     print "router bgp " + bgpasn
     print  "vlan-aware-bundle " + tenant_name
-    print "rd " + router_id + ":1"
+    rdprint =  "rd " + router_id + ":" + randnum
+    print rdprint
     print "route-target both "+ route_target
     print "redistribute learned"
     print  "vlan " + vlan_range
